@@ -15,3 +15,6 @@ SQL validation (SELECT-only + safe keywords)
 Day 3: Test successfully 
 
 change gitignore from data/ to *.xlsx
+
+
+Day 4: Update for work computer
