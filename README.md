@@ -10,3 +10,6 @@ Text2SQL generator (LLM produces SQL only)
 SQL validation (SELECT-only + safe keywords)
 
 /ask endpoint: user question → SQL → results
+
+
+Try to push email
