@@ -12,4 +12,6 @@ SQL validation (SELECT-only + safe keywords)
 /ask endpoint: user question → SQL → results
 
 
-Try to push email
+Day 3: Test successfully 
+
+change gitignore from data/ to *.xlsx
