@@ -1,13 +1,23 @@
 import os
 from dotenv import load_dotenv
+from pydantic_settings import BaseSettings  
 
-load_dotenv()
+load_dotenv()  # reads .env
 
-def get_env(key: str, default: str | None = None) -> str:
-    val = os.getenv(key, default)
-    if val is None:
-        raise RuntimeError(f"Missing environment variable: {key}")
-    return val
 
-APP_ENV = os.getenv("APP_ENV", "dev")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+class Settings(BaseSettings):
+    # Data
+    online_retail_csv: str = os.getenv("ONLINE_RETAIL_CSV", "./data/online_retail.xlsx")
+
+    # Environment / server
+    environment: str = os.getenv("ENVIRONMENT", "development")
+    host: str = os.getenv("HOST", "0.0.0.0")
+    port: int = int(os.getenv("PORT", 3978))
+    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
+
+settings = Settings()
+
