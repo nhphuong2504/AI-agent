@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     # Data
     online_retail_csv: str = os.getenv("ONLINE_RETAIL_CSV", "./data/online_retail.xlsx")
 
+    # Database
+    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./data/online_retail.db")
+
     # Environment / server
     environment: str = os.getenv("ENVIRONMENT", "development")
     host: str = os.getenv("HOST", "0.0.0.0")
