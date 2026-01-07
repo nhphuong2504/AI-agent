@@ -43,7 +43,22 @@ def init_db():
     );
     """)
 
+    create_clv_features_sql = text("""
+    CREATE TABLE IF NOT EXISTS clv_features (
+        CustomerID INTEGER PRIMARY KEY,
+        frequency INTEGER,
+        recency REAL,
+        T REAL,
+        monetary_value REAL,
+        num_invoices INTEGER,
+        total_revenue REAL,
+        first_purchase_date TEXT,
+        last_purchase_date TEXT
+    );
+    """)
+
+
     with engine.begin() as conn:
         conn.execute(create_transactions_sql)
         conn.execute(create_customers_sql)
-
+        conn.execute(create_clv_features_sql)
