@@ -1,9 +1,8 @@
 import os
 from dotenv import load_dotenv
-from pydantic_settings import BaseSettings  
+from pydantic_settings import BaseSettings
 
-load_dotenv()  # reads .env
-
+load_dotenv()
 
 class Settings(BaseSettings):
     # Data
@@ -11,6 +10,10 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./data/online_retail.db")
+
+    # OpenAI / LLM
+    openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     # Environment / server
     environment: str = os.getenv("ENVIRONMENT", "development")
@@ -23,4 +26,3 @@ class Settings(BaseSettings):
         case_sensitive = False
 
 settings = Settings()
-

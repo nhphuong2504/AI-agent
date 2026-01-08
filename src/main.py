@@ -2,7 +2,7 @@ from aiohttp import web
 import pandas as pd
 from src.config import settings
 from src.analytics import top_products_by_revenue
-from src.llm_client import generate_sql_stub, is_sql_safe
+from src.llm_client import generate_sql_stub, generate_sql_with_llm, is_sql_safe
 from src.sql_executor import run_select_query
 
 
@@ -153,11 +153,9 @@ async def query(request: web.Request) -> web.Response:
     End-to-end query endpoint:
 
     1) Takes a natural-language question (?question=...).
-    2) Uses the (stubbed) LLM client to generate SQL.
+    2) Uses the real LLM client to generate SQL (with a fallback to the stub).
     3) Runs the SQL with the safe executor.
     4) Returns prompt, SQL, and rows as JSON.
-
-    Later, generate_sql_stub will be replaced with a real LLM call.
     """
     question = request.rel_url.query.get("question")
     if not question:
@@ -170,8 +168,14 @@ async def query(request: web.Request) -> web.Response:
         )
 
     try:
-        # 1) NL → prompt + SQL (stubbed LLM)
-        prompt, sql = generate_sql_stub(question)
+        # 1) NL → prompt + SQL via real LLM
+        try:
+            prompt, sql = generate_sql_with_llm(question)
+            source = "llm"
+        except Exception as e:
+            # Optional: fallback to stub on error (e.g., missing API key)
+            prompt, sql = generate_sql_stub(question)
+            source = f"stub (fallback due to error: {e})"
 
         # 2) Safety check
         if not is_sql_safe(sql):
@@ -181,6 +185,7 @@ async def query(request: web.Request) -> web.Response:
                     "message": "Generated SQL failed safety checks.",
                     "question": question,
                     "sql": sql,
+                    "source": source,
                 },
                 status=400,
             )
@@ -197,18 +202,19 @@ async def query(request: web.Request) -> web.Response:
         prompt = ""
         sql = ""
         rows = []
+        source = "error"
 
     return web.json_response(
         {
             "status": status,
             "message": message,
             "question": question,
+            "source": source,
             "prompt": prompt,
             "sql": sql,
             "rows": rows,
         }
     )
-
 
 
 def create_app() -> web.Application:
