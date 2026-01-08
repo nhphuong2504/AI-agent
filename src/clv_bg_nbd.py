@@ -128,3 +128,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def get_top_clv_customers(n: int = 10) -> pd.DataFrame:
+    df = load_clv_features()
+    bgf, ggf, df_gg = fit_bg_nbd_gg(df)
+    clv_df = compute_predicted_clv(bgf, ggf, df_gg, time=30, freq="D", discount_rate=0.01)
+    return clv_df.sort_values("predicted_clv", ascending=False).head(n)

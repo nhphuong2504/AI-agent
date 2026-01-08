@@ -2,6 +2,9 @@ from aiohttp import web
 import pandas as pd
 from src.config import settings
 from src.analytics import top_products_by_revenue
+from src.llm_client import generate_sql_stub, is_sql_safe
+from src.sql_executor import run_select_query
+
 
 
 async def health(request: web.Request) -> web.Response:
@@ -60,11 +63,161 @@ async def top_products(request: web.Request) -> web.Response:
         "items": result,
     })
 
+async def debug_sql(request: web.Request) -> web.Response:
+    """
+    Debug endpoint: given a natural-language question, return
+    the LLM prompt and the (stubbed) SQL that would be executed.
+
+    Query parameter:
+    - question (required)
+    """
+    question = request.rel_url.query.get("question")
+    if not question:
+        return web.json_response(
+            {
+                "status": "error",
+                "message": "Missing 'question' query parameter.",
+            },
+            status=400,
+        )
+
+    try:
+        prompt, sql = generate_sql_stub(question)
+        status = "ok"
+        message = "Generated SQL using stubbed LLM client."
+    except Exception as e:
+        status = "error"
+        message = str(e)
+        prompt, sql = "", ""
+
+    return web.json_response(
+        {
+            "status": status,
+            "message": message,
+            "question": question,
+            "prompt": prompt,
+            "sql": sql,
+        }
+    )
+async def run_sql(request: web.Request) -> web.Response:
+    """
+    Debug endpoint: execute a provided SQL SELECT query and return results.
+
+    This is intended for internal use to test the execution layer.
+    In the future, this will be driven by LLM-generated SQL.
+
+    Query parameter:
+    - sql (required): the SQL query to execute.
+    """
+    sql = request.rel_url.query.get("sql")
+    if not sql:
+        return web.json_response(
+            {
+                "status": "error",
+                "message": "Missing 'sql' query parameter.",
+            },
+            status=400,
+        )
+
+    # Basic safety check
+    if not is_sql_safe(sql):
+        return web.json_response(
+            {
+                "status": "error",
+                "message": "SQL failed safety checks; potentially unsafe.",
+            },
+            status=400,
+        )
+
+    try:
+        df = run_select_query(sql)
+        rows = df.to_dict(orient="records")
+        status = "ok"
+        message = f"Query executed successfully. Returned {len(rows)} rows."
+    except Exception as e:
+        status = "error"
+        message = str(e)
+        rows = []
+
+    return web.json_response(
+        {
+            "status": status,
+            "message": message,
+            "sql": sql,
+            "rows": rows,
+        }
+    )
+
+async def query(request: web.Request) -> web.Response:
+    """
+    End-to-end query endpoint:
+
+    1) Takes a natural-language question (?question=...).
+    2) Uses the (stubbed) LLM client to generate SQL.
+    3) Runs the SQL with the safe executor.
+    4) Returns prompt, SQL, and rows as JSON.
+
+    Later, generate_sql_stub will be replaced with a real LLM call.
+    """
+    question = request.rel_url.query.get("question")
+    if not question:
+        return web.json_response(
+            {
+                "status": "error",
+                "message": "Missing 'question' query parameter.",
+            },
+            status=400,
+        )
+
+    try:
+        # 1) NL → prompt + SQL (stubbed LLM)
+        prompt, sql = generate_sql_stub(question)
+
+        # 2) Safety check
+        if not is_sql_safe(sql):
+            return web.json_response(
+                {
+                    "status": "error",
+                    "message": "Generated SQL failed safety checks.",
+                    "question": question,
+                    "sql": sql,
+                },
+                status=400,
+            )
+
+        # 3) Execute SQL
+        df = run_select_query(sql)
+        rows = df.to_dict(orient="records")
+
+        status = "ok"
+        message = f"Query executed successfully. Returned {len(rows)} rows."
+    except Exception as e:
+        status = "error"
+        message = str(e)
+        prompt = ""
+        sql = ""
+        rows = []
+
+    return web.json_response(
+        {
+            "status": status,
+            "message": message,
+            "question": question,
+            "prompt": prompt,
+            "sql": sql,
+            "rows": rows,
+        }
+    )
+
+
 
 def create_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/health", health)
-    app.router.add_get("/top-products", top_products)  # <— add this line
+    app.router.add_get("/top-products", top_products)  
+    app.router.add_get("/debug-sql", debug_sql)
+    app.router.add_get("/run-sql", run_sql)
+    app.router.add_get("/query", query)
     return app
 
 
